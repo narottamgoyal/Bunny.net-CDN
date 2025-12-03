@@ -53,7 +53,7 @@ public class CDNServiceDemo
                         cmdKey = string.Empty;
                         break;
                     }
-                case "DWF":
+                case "DSF":
                     {
                         foreach (string dirPath in Directory.GetDirectories(@".\images"))
                         {
@@ -64,7 +64,7 @@ public class CDNServiceDemo
                                 // Extract the file name from the full path
                                 string fileName = Path.GetFileName(filePath);
 
-                                cDNService.DownloadImageAsFileAsync(filePath);
+                                cDNService.DownloadImageAsFileFromStorage(filePath);
 
                                 // Print the file name
                                 Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
@@ -73,7 +73,7 @@ public class CDNServiceDemo
                         cmdKey = string.Empty;
                         break;
                     }
-                case "DWB":
+                case "DSB":
                     {
                         foreach (string dirPath in Directory.GetDirectories(@".\images"))
                         {
@@ -84,7 +84,47 @@ public class CDNServiceDemo
                                 // Extract the file name from the full path
                                 string fileName = Path.GetFileName(filePath);
 
-                                cDNService.DownloadImageAsBase64Async(filePath);
+                                cDNService.DownloadImageAsBase64FromStorage(filePath);
+
+                                // Print the file name
+                                Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
+                            }
+                        }
+                        cmdKey = string.Empty;
+                        break;
+                    }
+                case "DPF":
+                    {
+                        foreach (string dirPath in Directory.GetDirectories(@".\images"))
+                        {
+                            foreach (string filePath in Directory.GetFiles(@dirPath))
+                            {
+                                Console.WriteLine(filePath);
+
+                                // Extract the file name from the full path
+                                string fileName = Path.GetFileName(filePath);
+
+                                cDNService.DownloadImageAsFileFromPullZone(filePath);
+
+                                // Print the file name
+                                Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
+                            }
+                        }
+                        cmdKey = string.Empty;
+                        break;
+                    }
+                case "DPB":
+                    {
+                        foreach (string dirPath in Directory.GetDirectories(@".\images"))
+                        {
+                            foreach (string filePath in Directory.GetFiles(@dirPath))
+                            {
+                                Console.WriteLine(filePath);
+
+                                // Extract the file name from the full path
+                                string fileName = Path.GetFileName(filePath);
+
+                                cDNService.DownloadImageAsBase64FromPullZone(filePath);
 
                                 // Print the file name
                                 Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
@@ -105,11 +145,13 @@ public class CDNServiceDemo
                 default:
                     {
                         Console.WriteLine();
-                        Console.WriteLine("Enter U to upload all images from CDN");
-                        Console.WriteLine("Enter DL to delete image from CDN");
-                        Console.WriteLine("Enter DWF to download image from CDN");
-                        Console.WriteLine("Enter DWB to download image from CDN");
-                        Console.WriteLine("Enter DF to delete all images from CDN");
+                        Console.WriteLine("Enter U to upload all images to Bunny Storage Zone");
+                        Console.WriteLine("Enter DL to delete image from Bunny Storage Zone");
+                        Console.WriteLine("Enter DSF to download image from Bunny Storage Zone");
+                        Console.WriteLine("Enter DSB to download image from Bunny Storage Zone");
+                        Console.WriteLine("Enter DPF to download image from Bunny Pull Zone");
+                        Console.WriteLine("Enter DPB to download image from Bunny Pull Zone");
+                        Console.WriteLine("Enter DF to delete all images from Bunny Storage Zone");
                         Console.WriteLine("Enter E to Exit");
                         cmdKey = Console.ReadLine();
                         break;

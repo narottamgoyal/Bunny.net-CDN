@@ -5,14 +5,15 @@ using System.Net.Http;
 public class BunnyCDNService
 {
     ImageConversionService imageService = new ImageConversionService();
-    const string CDN_Endpoint = "https://storage.bunnycdn.com/my-storage-zone-name";
-    const string CDN_AccessKey = "d31a73db-4f18-ad24c7a11549-7026-06d6-44d2";
-    private readonly HttpClient httpClient;
+    const string Bunny_PullZone_Endpoint = "https://my-pull-zone-name.b-cdn.net";
+    const string Bunny_StorageZone_Endpoint = "https://storage.bunnycdn.com/my-storage-zone-name";
+    const string Bunny_StorageZone_AccessKey = "d31a73db-4f18-ad24c7a11549-7026-06d6-44d2";
+    private readonly HttpClient bunnyStorageZoneHttpClient;
 
     public BunnyCDNService()
     {
-        this.httpClient = new HttpClient();
-        this.httpClient.DefaultRequestHeaders.Add("AccessKey", CDN_AccessKey);
+        this.bunnyStorageZoneHttpClient = new HttpClient();
+        this.bunnyStorageZoneHttpClient.DefaultRequestHeaders.Add("AccessKey", Bunny_StorageZone_AccessKey);
     }
 
     public bool Delete(string filePath)
@@ -22,7 +23,7 @@ public class BunnyCDNService
 
         try
         {
-            var response = this.httpClient.DeleteAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            var response = this.bunnyStorageZoneHttpClient.DeleteAsync($"{Bunny_StorageZone_Endpoint}/{NormalizeFilePath(filePath)}").Result;
 
             if (response.IsSuccessStatusCode) return true;
 
@@ -45,7 +46,7 @@ public class BunnyCDNService
 
         try
         {
-            var response = this.httpClient.DeleteAsync($"{CDN_Endpoint}/{NormalizeFolderPath(filePath)}").Result;
+            var response = this.bunnyStorageZoneHttpClient.DeleteAsync($"{Bunny_StorageZone_Endpoint}/{NormalizeFolderPath(filePath)}").Result;
 
             if (response.IsSuccessStatusCode) return true;
 
@@ -74,7 +75,7 @@ public class BunnyCDNService
             using var ms = imageService.ConvertImage(filePath);
             using var content = new StreamContent(ms);
 
-            var response = this.httpClient.PutAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}", content).Result;
+            var response = this.bunnyStorageZoneHttpClient.PutAsync($"{Bunny_StorageZone_Endpoint}/{NormalizeFilePath(filePath)}", content).Result;
 
             if (response.IsSuccessStatusCode) return true;
 
@@ -120,11 +121,11 @@ public class BunnyCDNService
         return path + "/.";
     }
 
-    public void DownloadImageAsFileAsync(string filePath)
+    public void DownloadImageAsFileFromStorage(string filePath)
     {
         try
         {
-            byte[] imageBytes = this.httpClient.GetByteArrayAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            byte[] imageBytes = this.bunnyStorageZoneHttpClient.GetByteArrayAsync($"{Bunny_StorageZone_Endpoint}/{NormalizeFilePath(filePath)}").Result;
             var path = @$"C:\Users\NAROT\AppData\Local\Temp\downloaded/{NormalizeFilePath(filePath)}";
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, imageBytes);
@@ -135,11 +136,42 @@ public class BunnyCDNService
         }
     }
 
-    public void DownloadImageAsBase64Async(string filePath)
+    public void DownloadImageAsBase64FromStorage(string filePath)
     {
         try
         {
-            byte[] imageBytes = this.httpClient.GetByteArrayAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            byte[] imageBytes = this.bunnyStorageZoneHttpClient.GetByteArrayAsync($"{Bunny_StorageZone_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            string base64String = Convert.ToBase64String(imageBytes);
+            Console.WriteLine(base64String);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
+    }
+
+    public void DownloadImageAsFileFromPullZone(string filePath)
+    {
+        try
+        {
+            var httpClient = new HttpClient();
+            byte[] imageBytes = httpClient.GetByteArrayAsync($"{Bunny_PullZone_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            var path = @$"C:\Users\NAROT\AppData\Local\Temp\downloaded_pz/{NormalizeFilePath(filePath)}";
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, imageBytes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
+    }
+
+    public void DownloadImageAsBase64FromPullZone(string filePath)
+    {
+        try
+        {
+            var httpClient = new HttpClient();
+            byte[] imageBytes = httpClient.GetByteArrayAsync($"{Bunny_PullZone_Endpoint}/{NormalizeFilePath(filePath)}").Result;
             string base64String = Convert.ToBase64String(imageBytes);
             Console.WriteLine(base64String);
         }
