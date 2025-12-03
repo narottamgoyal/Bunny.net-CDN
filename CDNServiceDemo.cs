@@ -33,7 +33,7 @@ public class CDNServiceDemo
                         cmdKey = string.Empty;
                         break;
                     }
-                case "D":
+                case "DL":
                     {
                         foreach (string dirPath in Directory.GetDirectories(@".\images"))
                         {
@@ -45,6 +45,46 @@ public class CDNServiceDemo
                                 string fileName = Path.GetFileName(filePath);
 
                                 cDNService.Delete(filePath);
+
+                                // Print the file name
+                                Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
+                            }
+                        }
+                        cmdKey = string.Empty;
+                        break;
+                    }
+                case "DWF":
+                    {
+                        foreach (string dirPath in Directory.GetDirectories(@".\images"))
+                        {
+                            foreach (string filePath in Directory.GetFiles(@dirPath))
+                            {
+                                Console.WriteLine(filePath);
+
+                                // Extract the file name from the full path
+                                string fileName = Path.GetFileName(filePath);
+
+                                cDNService.DownloadImageAsFileAsync(filePath);
+
+                                // Print the file name
+                                Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
+                            }
+                        }
+                        cmdKey = string.Empty;
+                        break;
+                    }
+                case "DWB":
+                    {
+                        foreach (string dirPath in Directory.GetDirectories(@".\images"))
+                        {
+                            foreach (string filePath in Directory.GetFiles(@dirPath))
+                            {
+                                Console.WriteLine(filePath);
+
+                                // Extract the file name from the full path
+                                string fileName = Path.GetFileName(filePath);
+
+                                cDNService.DownloadImageAsBase64Async(filePath);
 
                                 // Print the file name
                                 Console.WriteLine($"https://m-s-z.b-cdn.net/{fileName}");
@@ -66,7 +106,9 @@ public class CDNServiceDemo
                     {
                         Console.WriteLine();
                         Console.WriteLine("Enter U to upload all images from CDN");
-                        Console.WriteLine("Enter D to delete image from CDN");
+                        Console.WriteLine("Enter DL to delete image from CDN");
+                        Console.WriteLine("Enter DWF to download image from CDN");
+                        Console.WriteLine("Enter DWB to download image from CDN");
                         Console.WriteLine("Enter DF to delete all images from CDN");
                         Console.WriteLine("Enter E to Exit");
                         cmdKey = Console.ReadLine();

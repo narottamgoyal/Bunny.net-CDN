@@ -5,8 +5,8 @@ using System.Net.Http;
 public class BunnyCDNService
 {
     ImageConversionService imageService = new ImageConversionService();
-    const string CDN_Endpoint = "https://storage.bunnycdn.com/m-s-z";
-    const string CDN_AccessKey = "2ed46a31-2a0c-4900-89f6453c63d8-879a-4c70";
+    const string CDN_Endpoint = "https://storage.bunnycdn.com/my-storage-zone-name";
+    const string CDN_AccessKey = "d31a73db-4f18-ad24c7a11549-7026-06d6-44d2";
     private readonly HttpClient httpClient;
 
     public BunnyCDNService()
@@ -106,7 +106,6 @@ public class BunnyCDNService
 
     public string NormalizeFolderPath(string path)
     {
-        // Trim all prepending & tailing whitespace, fix windows-like paths then remove prepending slashes
         path = path.Trim()
             .Replace("\\", "/")
             .TrimStart('.')
@@ -119,5 +118,34 @@ public class BunnyCDNService
 
 
         return path + "/.";
+    }
+
+    public void DownloadImageAsFileAsync(string filePath)
+    {
+        try
+        {
+            byte[] imageBytes = this.httpClient.GetByteArrayAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            var path = @$"C:\Users\NAROT\AppData\Local\Temp\downloaded/{NormalizeFilePath(filePath)}";
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, imageBytes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
+    }
+
+    public void DownloadImageAsBase64Async(string filePath)
+    {
+        try
+        {
+            byte[] imageBytes = this.httpClient.GetByteArrayAsync($"{CDN_Endpoint}/{NormalizeFilePath(filePath)}").Result;
+            string base64String = Convert.ToBase64String(imageBytes);
+            Console.WriteLine(base64String);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
     }
 }
