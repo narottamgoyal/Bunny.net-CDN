@@ -3,6 +3,9 @@ using System.IO;
 
 public class CDNServiceDemo
 {
+    /// <summary>
+    /// https://docs.bunny.net/reference/storage-api
+    /// </summary>
     public static void Main()
     {
         BunnyCDNService cDNService = new BunnyCDNService();
@@ -13,6 +16,18 @@ public class CDNServiceDemo
             if (cmdKey == null) { cmdKey = Console.ReadLine(); }
             switch (cmdKey.ToUpper())
             {
+                case "GF":
+                    {
+                        cDNService.GetF();
+                        cmdKey = string.Empty;
+                        break;
+                    }
+                case "GB":
+                    {
+                        cDNService.GetB();
+                        cmdKey = string.Empty;
+                        break;
+                    }
                 case "U":
                     {
                         foreach (string dirPath in Directory.GetDirectories(@".\images"))
@@ -145,6 +160,8 @@ public class CDNServiceDemo
                 default:
                     {
                         Console.WriteLine();
+                        Console.WriteLine("Enter GB to get all images from Bunny Storage Zone");
+                        Console.WriteLine("Enter GF to get all images from Bunny Storage Zone");
                         Console.WriteLine("Enter U to upload all images to Bunny Storage Zone");
                         Console.WriteLine("Enter DL to delete image from Bunny Storage Zone");
                         Console.WriteLine("Enter DSF to download image from Bunny Storage Zone");

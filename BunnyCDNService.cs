@@ -1,19 +1,104 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 
 public class BunnyCDNService
 {
     ImageConversionService imageService = new ImageConversionService();
-    const string Bunny_PullZone_Endpoint = "https://my-pull-zone-name.b-cdn.net";
-    const string Bunny_StorageZone_Endpoint = "https://storage.bunnycdn.com/my-storage-zone-name";
-    const string Bunny_StorageZone_AccessKey = "d31a73db-4f18-ad24c7a11549-7026-06d6-44d2";
+    const string Bunny_PullZone_Endpoint = "https://m-p-z.b-cdn.net";
+    const string Bunny_StorageZone_Base_Endpoint = "https://storage.bunnycdn.com";
+    const string Bunny_StorageZone_Endpoint = $"{Bunny_StorageZone_Base_Endpoint}/my-storage-zone-name";
+    const string Bunny_StorageZone_AccessKey = "------------secret----------------";
     private readonly HttpClient bunnyStorageZoneHttpClient;
 
     public BunnyCDNService()
     {
         this.bunnyStorageZoneHttpClient = new HttpClient();
         this.bunnyStorageZoneHttpClient.DefaultRequestHeaders.Add("AccessKey", Bunny_StorageZone_AccessKey);
+    }
+
+    public bool GetF(string filePath = "")
+    {
+        try
+        {
+            var response = this.bunnyStorageZoneHttpClient.GetAsync($"{Bunny_StorageZone_Endpoint}/{filePath}").GetAwaiter().GetResult();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"HTTP Error: {response.StatusCode}");
+                return false;
+            }
+
+            var json = response.Content
+                .ReadAsStringAsync()
+                .GetAwaiter()
+                .GetResult();
+
+            var items = JsonSerializer.Deserialize<List<BunnyStorageItem>>(json);
+
+            foreach (var item in items)
+            {
+                Console.WriteLine($"Name: {item.ObjectName}, Dir: {item.IsDirectory}, Size: {item.Length}");
+
+                if (item.IsDirectory) this.GetF($"{filePath}/{item.ObjectName}/");
+                else
+                {
+                    //download image
+                    this.DownloadImageAsFileFromStorage2($"{item.Path}", item.ObjectName);
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+
+        return false;
+    }
+
+    public bool GetB(string filePath = "")
+    {
+        try
+        {
+            var response = this.bunnyStorageZoneHttpClient.GetAsync($"{Bunny_StorageZone_Endpoint}/{filePath}").GetAwaiter().GetResult();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"HTTP Error: {response.StatusCode}");
+                return false;
+            }
+
+            var json = response.Content
+                .ReadAsStringAsync()
+                .GetAwaiter()
+                .GetResult();
+
+            var items = JsonSerializer.Deserialize<List<BunnyStorageItem>>(json);
+
+            foreach (var item in items)
+            {
+                Console.WriteLine($"Name: {item.ObjectName}, Dir: {item.IsDirectory}, Size: {item.Length}");
+
+                if (!item.IsDirectory)
+                {
+                    //download image
+                    this.DownloadImageAsBase64FromStorage2($"{item.Path}", item.ObjectName);
+                }
+                else this.GetB($"{filePath}/{item.ObjectName}/");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+
+        return false;
     }
 
     public bool Delete(string filePath)
@@ -120,6 +205,36 @@ public class BunnyCDNService
 
         return path + "/.";
     }
+
+    public void DownloadImageAsFileFromStorage2(string filePath, string filename = "")
+    {
+        try
+        {
+            byte[] imageBytes = this.bunnyStorageZoneHttpClient.GetByteArrayAsync($"{Bunny_StorageZone_Base_Endpoint}{filePath}{filename}").Result;
+            var path = @$"C:\Users\NAROT\AppData\Local\Temp\downloaded{filePath}{filename}";
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, imageBytes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
+    }
+
+    public void DownloadImageAsBase64FromStorage2(string filePath, string filename = "")
+    {
+        try
+        {
+            byte[] imageBytes = this.bunnyStorageZoneHttpClient.GetByteArrayAsync($"{Bunny_StorageZone_Base_Endpoint}{filePath}{filename}").Result;
+            string base64String = Convert.ToBase64String(imageBytes);
+            Console.WriteLine(base64String);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading image: {ex.Message}");
+        }
+    }
+
 
     public void DownloadImageAsFileFromStorage(string filePath)
     {
