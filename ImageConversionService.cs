@@ -2,6 +2,9 @@
 using System;
 using System.IO;
 
+/// <summary>
+/// Service for converting images to WebP format and generating thumbnails.
+/// </summary>
 public class ImageConversionService
 {
     private readonly int _thumbnailQuality;
@@ -10,94 +13,125 @@ public class ImageConversionService
 
     public ImageConversionService(int thumbnailQuality = 60, int imageQuality = 75, int thumbnailMaxDimension = 120)
     {
-        if (thumbnailQuality < 0 || thumbnailQuality > 100)
-            throw new ArgumentOutOfRangeException(nameof(thumbnailQuality));
-        if (imageQuality < 0 || imageQuality > 100)
-            throw new ArgumentOutOfRangeException(nameof(imageQuality));
-        if (thumbnailMaxDimension <= 0)
-            throw new ArgumentOutOfRangeException(nameof(thumbnailMaxDimension));
-
-        _thumbnailQuality = thumbnailQuality;
-        _imageQuality = imageQuality;
-        _thumbnailMaxDimension = thumbnailMaxDimension;
+        _thumbnailQuality = Math.Clamp(thumbnailQuality, 0, 100);
+        _imageQuality = Math.Clamp(imageQuality, 0, 100);
+        _thumbnailMaxDimension = thumbnailMaxDimension > 0 ? thumbnailMaxDimension : 120;
     }
 
     // ==========================
-    // High-level Entry Methods
+    // Public API
     // ==========================
 
-    // Thumbnail (smaller, optimized for mobile)
-    public MemoryStream ConvertThumbnail(string filePath) => ConvertInternal(filePath: filePath, quality: _thumbnailQuality, resizeThumbnail: true);
-    public MemoryStream ConvertThumbnail(byte[] bytes) => ConvertInternal(bytes: bytes, quality: _thumbnailQuality, resizeThumbnail: true);
-    public MemoryStream ConvertThumbnail(Stream stream) => ConvertInternal(stream: stream, quality: _thumbnailQuality, resizeThumbnail: true);
-    public MemoryStream ConvertThumbnailFromBase64(string base64) => ConvertInternal(base64: base64, quality: _thumbnailQuality, resizeThumbnail: true);
+    /// <summary>
+    /// Converts the input image to a WebP thumbnail.
+    /// </summary>
+    /// <param name="filePath">Path to the image file.</param>
+    /// <returns>A <see cref="MemoryStream"/> containing the WebP-encoded thumbnail. The caller is responsible for disposing the stream.</returns>
+    /// <remarks>
+    /// This method allocates unmanaged memory for the image internally.
+    /// The returned <see cref="MemoryStream"/> **must be disposed** after use to avoid memory pressure.
+    /// Recommended usage:
+    /// <code>
+    /// using var thumbnailStream = imageService.ConvertThumbnail("image.jpg");
+    /// // Use thumbnailStream here
+    /// </code>
+    /// </remarks>
+    public MemoryStream ConvertThumbnail(byte[] bytes) => ConvertInternal(bytes: bytes, quality: _thumbnailQuality, isThumbnail: true);
+    public MemoryStream ConvertThumbnail(string filePath) => ConvertInternal(filePath: filePath, quality: _thumbnailQuality, isThumbnail: true);
+    public MemoryStream ConvertThumbnail(Stream stream) => ConvertInternal(stream: stream, quality: _thumbnailQuality, isThumbnail: true);
 
-    // Full image (higher quality)
-    public MemoryStream ConvertImage(string filePath) => ConvertInternal(filePath: filePath, quality: _imageQuality, resizeThumbnail: false);
-    public MemoryStream ConvertImage(byte[] bytes) => ConvertInternal(bytes: bytes, quality: _imageQuality, resizeThumbnail: false);
-    public MemoryStream ConvertImage(Stream stream) => ConvertInternal(stream: stream, quality: _imageQuality, resizeThumbnail: false);
-    public MemoryStream ConvertImageFromBase64(string base64) => ConvertInternal(base64: base64, quality: _imageQuality, resizeThumbnail: false);
+    /// <summary>
+    /// Converts the input image to a WebP full-size image.
+    /// </summary>
+    /// <param name="filePath">Path to the image file.</param>
+    /// <returns>A <see cref="MemoryStream"/> containing the WebP-encoded image. The caller is responsible for disposing the stream.</returns>
+    /// <remarks>
+    /// Ensure proper disposal of the returned stream to prevent memory leaks:
+    /// <code>
+    /// using var imageStream = imageService.ConvertImage("image.jpg");
+    /// // Use imageStream here
+    /// </code>
+    /// </remarks>
+    public MemoryStream ConvertImage(byte[] bytes) => ConvertInternal(bytes: bytes, quality: _imageQuality, isThumbnail: false);
+    public MemoryStream ConvertImage(string filePath) => ConvertInternal(filePath: filePath, quality: _imageQuality, isThumbnail: false);
+    public MemoryStream ConvertImage(Stream stream) => ConvertInternal(stream: stream, quality: _imageQuality, isThumbnail: false);
 
     // ==========================
-    // Centralized Decode + Convert
+    // Core Logic
     // ==========================
-    private MemoryStream ConvertInternal(string? filePath = null, byte[]? bytes = null, Stream? stream = null, string? base64 = null, int quality = 75, bool resizeThumbnail = false)
+    private MemoryStream ConvertInternal(string? filePath = null, byte[]? bytes = null, Stream? stream = null, int quality = 75, bool isThumbnail = false)
     {
-        SKBitmap bitmap = DecodeImage(filePath, bytes, stream, base64);
+        // 1. Decode the original image (Wrapped in using to fix Memory Leak)
+        using SKBitmap originalBitmap = DecodeImage(filePath, bytes, stream);
 
-        SKBitmap processedBitmap = bitmap;
+        // 2. Determine which bitmap to encode (Original or Resized)
+        SKBitmap bitmapToEncode = originalBitmap;
+        SKBitmap? resizedBitmap = null;
 
-        if (resizeThumbnail)
+        if (isThumbnail)
         {
-            processedBitmap = ResizeThumbnail(bitmap, _thumbnailMaxDimension);
+            // Only resize if the original is larger than the target
+            if (originalBitmap.Width > _thumbnailMaxDimension || originalBitmap.Height > _thumbnailMaxDimension)
+            {
+                resizedBitmap = ResizeThumbnail(originalBitmap, _thumbnailMaxDimension);
+                if (resizedBitmap == null)
+                {
+                    // TODO: log Failed to resize bitmap
+                    bitmapToEncode = originalBitmap;
+                }
+                else
+                {
+                    bitmapToEncode = resizedBitmap;
+                }
+            }
         }
 
-        using var image = SKImage.FromBitmap(processedBitmap);
-        var memStream = new MemoryStream();
-        using var data = image.Encode(SKEncodedImageFormat.Webp, quality);
-        data.SaveTo(memStream);
-        memStream.Seek(0, SeekOrigin.Begin);
-
-        if (resizeThumbnail && processedBitmap != bitmap)
-            processedBitmap.Dispose();
-
-        return memStream;
-    }
-
-    // ==========================
-    // Decode Helper
-    // ==========================
-    private SKBitmap DecodeImage(string? filePath = null, byte[]? bytes = null, Stream? stream = null, string? base64 = null)
-    {
-        SKBitmap bitmap = null;
-
-        if (filePath != null)
-            bitmap = SKBitmap.Decode(filePath);
-        else if (bytes != null)
-            bitmap = SKBitmap.Decode(bytes);
-        else if (stream != null)
-            bitmap = SKBitmap.Decode(stream);
-        else if (base64 != null)
+        try
         {
-            var decodedBytes = Convert.FromBase64String(base64);
-            bitmap = SKBitmap.Decode(decodedBytes);
+            // 3. Encode to WebP
+            using var image = SKImage.FromBitmap(bitmapToEncode);
+            using var data = image.Encode(SKEncodedImageFormat.Webp, quality);
+
+            var memStream = new MemoryStream();
+            data.SaveTo(memStream);
+            memStream.Seek(0, SeekOrigin.Begin);
+
+            return memStream;
         }
-
-        if (bitmap == null)
-            throw new ArgumentException("Unable to decode image from provided input.");
-
-        return bitmap;
+        finally
+        {
+            // 4. Cleanup: If we created a temporary resized bitmap, dispose it.
+            // Note: originalBitmap is disposed automatically by the 'using' statement at step 1.
+            resizedBitmap?.Dispose();
+        }
     }
 
-    // ==========================
-    // Thumbnail Resizing
-    // ==========================
+    private SKBitmap DecodeImage(string? filePath, byte[]? bytes, Stream? stream)
+    {
+        if (filePath != null) return SKBitmap.Decode(filePath);
+        if (bytes != null) return SKBitmap.Decode(bytes);
+        if (stream != null)
+        {
+            // Rewind stream if possible to ensure we read from start
+            if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin);
+            return SKBitmap.Decode(stream);
+        }
+        throw new ArgumentException("No valid input provided to decode image.");
+    }
+
     private SKBitmap ResizeThumbnail(SKBitmap bitmap, int maxDimension)
     {
         float scale = Math.Min((float)maxDimension / bitmap.Width, (float)maxDimension / bitmap.Height);
-        int width = (int)(bitmap.Width * scale);
-        int height = (int)(bitmap.Height * scale);
 
-        return bitmap.Resize(new SKImageInfo(width, height), SKSamplingOptions.Default);
+        int newWidth = (int)(bitmap.Width * scale);
+        int newHeight = (int)(bitmap.Height * scale);
+
+        var info = new SKImageInfo(newWidth, newHeight);
+
+        // Use Medium or High quality filter for smoother thumbnails
+        // SKSamplingOptions.Default is often "NearestNeighbor" which looks pixelated
+        var sampling = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Nearest);
+
+        return bitmap.Resize(info, sampling);
     }
 }
